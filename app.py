@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import pickle
@@ -16,7 +15,7 @@ st.write(
     "using soil nutrients and weather conditions."
 )
 
-# Step 2: Load the existing trained model
+# Step 2: Load the trained model
 with open("crop_model.pkl", "rb") as file:
     model = pickle.load(file)
 
@@ -38,8 +37,9 @@ with col2:
     ph = st.number_input("Soil pH", 0.0, 14.0, 6.5)
     rainfall = st.number_input("Rainfall (mm)", 0.0, 5000.0, 200.0)
 
-# Step 4: Predict the top three candidate crops
+# Step 4: Predict all crop classes
 if st.button("Recommend Crops", type="primary"):
+
     input_data = pd.DataFrame([{
         "N": N,
         "P": P,
@@ -50,42 +50,49 @@ if st.button("Recommend Crops", type="primary"):
         "rainfall": rainfall
     }])
 
+    # Get prediction scores for all crop classes
     probabilities = model.predict_proba(input_data)[0]
-    classes = model.classes_
+    crop_names = model.classes_
 
-    top_indices = probabilities.argsort()[::-1][:3]
-
-    st.header("🌾 Top 3 Crop Recommendations")
-
+    # Create a table containing every crop
     results = pd.DataFrame({
-        "Crop": classes[top_indices],
-        "Model Probability (%)": (
-            probabilities[top_indices] * 100
-        ).round(2)
+        "Crop": crop_names,
+        "Prediction Score (%)": probabilities * 100
     })
 
-    results = results.reset_index(drop=True)
-    results.index = results.index + 1
+    # Sort from highest to lowest score
+    results = results.sort_values(
+        by="Prediction Score (%)",
+        ascending=False
+    ).reset_index(drop=True)
 
-    st.dataframe(results, use_container_width=True)
-
-    best_crop = classes[top_indices[0]]
-    st.success(f"Top candidate crop: {str(best_crop).title()}")
+    # Display all crop predictions
+    st.subheader("🌾 All Crop Recommendations")
 
     st.caption(
-        "Probabilities are model estimates, not guaranteed chances "
-        "of successful cultivation. The top three are candidates, "
-        "not a verified ranking of agricultural suitability."
+        "Scores are model-estimated probabilities, "
+        "not guaranteed chances of successful cultivation."
+    )
+
+    st.dataframe(
+        results.style.format({
+            "Prediction Score (%)": "{:.2f}%"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # Display the highest-scoring candidate
+    best_crop = results.iloc[0]["Crop"]
+
+    st.success(
+        f"Highest-scoring candidate: {str(best_crop).title()}"
     )
 
 # Step 5: Show project information
 with st.expander("About this ML project"):
-    st.write(
-        "Algorithm: Random Forest Classifier"
-    )
+    st.write("Algorithm: Random Forest Classifier")
     st.write(
         "Input features: N, P, K, temperature, humidity, pH and rainfall."
     )
-    st.write(
-        "Target: Crop label from the training dataset."
-    )
+    st.write("Target: Crop label from the training dataset.")
