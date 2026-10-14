@@ -68,8 +68,9 @@ python -m streamlit run app.py
 ```
 
 ## Live Application
-**[Click here to open the live website]
+**[Click here to open the live website] 
 (https://smart-crop-recommendation-gorfmyhwiskydhaxwytibk.streamlit.app/)
+
 
 
 
