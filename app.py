@@ -16,8 +16,12 @@ st.write(
 )
 
 # Step 2: Load the trained model
-with open("crop_model.pkl", "rb") as file:
-    model = pickle.load(file)
+@st.cache_resource
+def load_model():
+    with open("crop_model.pkl", "rb") as file:
+        return pickle.load(file)
+
+model = load_model()
 
 # Step 3: Display input fields
 st.header("Soil and Weather Information")
@@ -37,7 +41,7 @@ with col2:
     ph = st.number_input("Soil pH", 0.0, 14.0, 6.5)
     rainfall = st.number_input("Rainfall (mm)", 0.0, 5000.0, 200.0)
 
-# Step 4: Predict all crop classes
+# Step 4: Recommend crops
 if st.button("Recommend Crops", type="primary"):
 
     input_data = pd.DataFrame([{
@@ -50,28 +54,36 @@ if st.button("Recommend Crops", type="primary"):
         "rainfall": rainfall
     }])
 
-    # Get prediction scores for all crop classes
+    # Ensure the input columns match the model's training features
+    input_data = input_data[model.feature_names_in_]
+
+    # Predict probabilities for all learned crop classes
     probabilities = model.predict_proba(input_data)[0]
     crop_names = model.classes_
 
-    # Create a table containing every crop
     results = pd.DataFrame({
         "Crop": crop_names,
         "Prediction Score (%)": probabilities * 100
     })
 
-    # Sort from highest to lowest score
     results = results.sort_values(
         by="Prediction Score (%)",
         ascending=False
     ).reset_index(drop=True)
 
-    # Display all crop predictions
-    st.subheader("🌾 All Crop Recommendations")
+    st.subheader("🌾 Top 3 Crop Recommendations")
+    top_three = results.head(3)
 
+    for _, row in top_three.iterrows():
+        st.metric(
+            label=str(row["Crop"]).title(),
+            value=f'{row["Prediction Score (%)"]:.2f}%'
+        )
+
+    st.subheader("📊 Prediction Scores for All 22 Crops")
     st.caption(
-        "Scores are model-estimated probabilities, "
-        "not guaranteed chances of successful cultivation."
+        "Scores are model-estimated probabilities, not guarantees "
+        "of successful cultivation. Some crops may have a score of 0%."
     )
 
     st.dataframe(
@@ -82,11 +94,9 @@ if st.button("Recommend Crops", type="primary"):
         hide_index=True
     )
 
-    # Display the highest-scoring candidate
-    best_crop = results.iloc[0]["Crop"]
-
     st.success(
-        f"Highest-scoring candidate: {str(best_crop).title()}"
+        f"Highest-scoring candidate: "
+        f"{str(results.iloc[0]['Crop']).title()}"
     )
 
 # Step 5: Show project information
@@ -96,3 +106,4 @@ with st.expander("About this ML project"):
         "Input features: N, P, K, temperature, humidity, pH and rainfall."
     )
     st.write("Target: Crop label from the training dataset.")
+    st.write(f"Crop classes learned: {len(model.classes_)}")
